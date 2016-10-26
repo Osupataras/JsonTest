@@ -6,7 +6,8 @@
     tools:context="com.osypchuk.taras.jsontest.MainActivity">
 
     <ListView
-        android:id="@+id/list"
+
+        android:id="@+id/matcheslist"
         android:layout_width="fill_parent"
         android:layout_height="wrap_content" />
 </RelativeLayout>
