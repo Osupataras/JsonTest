@@ -1,60 +1,96 @@
 package com.osypchuk.taras.jsontest;
 
 import android.app.ProgressDialog;
+import android.content.Intent;
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.support.design.widget.FloatingActionButton;
 import android.support.v7.app.AppCompatActivity;
+import android.support.v7.widget.LinearLayoutManager;
+import android.support.v7.widget.RecyclerView;
 import android.util.Log;
 import android.view.View;
-import android.widget.AdapterView;
-import android.widget.ListAdapter;
-import android.widget.ListView;
-import android.widget.SimpleAdapter;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.List;
+import java.util.Locale;
 
 import info.androidhive.jsonparsing.R;
 
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends AppCompatActivity implements View.OnClickListener{
 
+    TextView acc;
+    public String my_account_id, steam_url_matches_request,url,url_match_details_request;
     private String TAG = MainActivity.class.getSimpleName();
 
     private ProgressDialog pDialog;
-    private ListView lv;
-    public String account_id = "374639183";
-    public String steam_url_request = "https://api.steampowered.com/IDOTA2Match_570/GetMatchHistory/V001/?key=73EE0AFD6C12F2AB4605F611C2AB86EF&account_id=";
+    private List<Match> match;
+    private RVAdapter adapter;
+    private RecyclerView rv;
 
-    // URL to get contacts JSON
-    private String url = steam_url_request + account_id;
+    private void set_my_account_id (String my_account_id){
+        this.my_account_id = my_account_id;
+    }
 
-    ArrayList<HashMap<String, String>> matchList;
-    ArrayList<HashMap<String,String>> playerList;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        matchList = new ArrayList<>();
-        playerList = new ArrayList<>();
-        final String LOG_TAG = "myLogs";
+        acc = (TextView) findViewById(R.id.account_name);
+        acc.setText("account id");
 
-        lv = (ListView) findViewById(R.id.matcheslist);
-        lv.setClickable(true);
-        lv.setOnItemClickListener(new AdapterView.OnItemClickListener() {
-            @Override
-            public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
-                Log.d(LOG_TAG, "itemClick: position = " + position + ", id = " + id);
-            }
-        });
+        FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
+        fab.setOnClickListener(this);
+
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        if (data == null) {return;}
+        my_account_id = data.getStringExtra("acc");
+        steam_url_matches_request = "https://api.steampowered.com/IDOTA2Match_570/GetMatchHistory/V001/?key=73EE0AFD6C12F2AB4605F611C2AB86EF&account_id=";
+        url = steam_url_matches_request + my_account_id+"&matches_requested=10";
+        url_match_details_request = "https://api.steampowered.com/IDOTA2Match_570/GetMatchDetails/V001/?key=73EE0AFD6C12F2AB4605F611C2AB86EF&account_id=";
+
+
+
+        acc.setText(my_account_id);
+
         new GetMatches().execute();
+        adapter = new RVAdapter(match);
+        rv = (RecyclerView)findViewById(R.id.rv);
+        rv.setLayoutManager(new LinearLayoutManager(this));
+        rv.setAdapter(adapter);
+
+
+
+
+
+    }
+
+
+    private String JsonDownloader (String url){
+        HttpHandler sh = new HttpHandler();
+        String json = sh.makeServiceCall(url);
+        return json;
+    }
+
+    @Override
+    public void onClick(View v) {
+        Intent intent = new Intent(this, RequestActivity.class);
+        startActivityForResult(intent, 1);
+
     }
 
 
@@ -76,27 +112,45 @@ public class MainActivity extends AppCompatActivity {
 
         @Override
         protected Void doInBackground(Void... arg0) {
-            HttpHandler sh = new HttpHandler();
 
-            // Making a request to url and getting response
-            String jsonStr = sh.makeServiceCall(url);
+            String jsonMatches = JsonDownloader(url);
 
-            Log.e(TAG, "Response from url: " + jsonStr);
+            Log.e(TAG, "Response from url: " + jsonMatches);
 
-            if (jsonStr != null) {
+            if (jsonMatches != null) {
                 try {
-                    JSONObject jsonObj = new JSONObject(jsonStr);
+                    JSONObject jsonObj = new JSONObject(jsonMatches);
 
                     // Getting JSON Array node
                     JSONObject result = jsonObj.getJSONObject("result");
                     JSONArray matches = result.getJSONArray("matches");
+
+                    match = new ArrayList<>();
                     for (int i = 0; i < matches.length(); i++){
 
                         JSONObject lastmatch = matches.getJSONObject(i);
 
-                        String match_id = "match id: "+lastmatch.getString("match_id");
+                        String match_id = lastmatch.getString("match_id");
+                        String url_match_details = url_match_details_request+my_account_id+
+                                "&match_id="+match_id;
+
+                        String jsonMatchDetails = JsonDownloader(url_match_details);
+                        Boolean radiant_win = true;
+                        if (jsonMatchDetails != null) {
+                            try {
+                                JSONObject jsonObjDet = new JSONObject(jsonMatchDetails);
+                                JSONObject resultDet = jsonObjDet.getJSONObject("result");
+                                radiant_win = resultDet.getBoolean("radiant_win");
+                            } catch (JSONException e) {
+                                e.printStackTrace();
+                            }
+                        }
+
+
                         String match_seq_num = lastmatch.getString("match_seq_num");
                         String start_time = lastmatch.getString("start_time");
+
+
                         int lobby_type = lastmatch.getInt("lobby_type");
                         String slobby_type = "";
                         switch (lobby_type) {
@@ -126,35 +180,44 @@ public class MainActivity extends AppCompatActivity {
                         String dire_team_id = lastmatch.getString("dire_team_id");
 
                         long timestamp = Long.parseLong(start_time)*1000;
+                        SimpleDateFormat dateFormat = new SimpleDateFormat("EEE MMM dd HH:mm:ss", Locale.getDefault());
                         Date d = new Date (timestamp);
-                        String start = d.toString();
+                        String start = dateFormat.format(d);
 
-                        HashMap<String, String> match = new HashMap<>();
+                        JSONArray players = lastmatch.getJSONArray("players");
+                        String my_hero = "";
+                        int my_hero_id = 0;
+                        Boolean my_team_radiant = true;
+                        String my_player_slot = "";
+                        String isWon = "Lose";
+                        for (int j = 0; j < players.length(); j++){
+                            JSONObject player = players.getJSONObject(j);
+                            String account_id = player.getString("account_id");
+                            String player_slot = player.getString("player_slot");
+                            String hero_id = player.getString("hero_id");
 
-                        match.put("match_id",match_id);
-                        match.put("start_time",start);
-                        match.put("lobby_type",slobby_type);
-                        match.put("match_seq_num",match_seq_num);
+                            if(Get_heroID_by_accountID.accontID_confirming(account_id,my_account_id)){
+                                my_hero = Get_heroID_by_accountID.Get_heroNAME_by_heroId(Integer.parseInt(hero_id));
+                                my_hero_id = getResources().getIdentifier(my_hero , "drawable", getPackageName());
+                                my_player_slot = player_slot;
+                                if(Integer.parseInt(my_player_slot)<10){my_team_radiant = true;}
+                                else {my_team_radiant = false;}
+                            }
+
+                            HashMap<String, String> tenplayer = new HashMap<>();
+
+                            player.put("account_id",account_id);
+                            player.put("player_slot",player_slot);
+                            player.put("hero_id",hero_id);
+
+//                            playerListItem.add(tenplayer);
 
 
-                    matchList.add(match);
+                        }
+                        Boolean win = false;
+                        if(my_team_radiant.equals(radiant_win)){isWon = "Won";}
+                        match.add(new Match(my_hero_id,my_hero,match_id,start,slobby_type,isWon));
 
-                    JSONArray players = lastmatch.getJSONArray("players");
-                    for (int j = 0; j < players.length(); j++){
-                        JSONObject player = players.getJSONObject(j);
-                        String account_id = player.getString("account_id");
-                        String player_slot = player.getString("player_slot");
-                        String hero_id = player.getString("hero_id");
-
-                        HashMap<String, String> tenplayers = new HashMap<>();
-
-                        player.put("account_id",account_id);
-                        player.put("player_slot",player_slot);
-                        player.put("hero_id",hero_id);
-
-                        playerList.add(tenplayers);
-
-                    }
                     }
 
                 } catch (final JSONException e) {
@@ -185,6 +248,8 @@ public class MainActivity extends AppCompatActivity {
             }
 
             return null;
+
+
         }
 
         @Override
@@ -196,12 +261,9 @@ public class MainActivity extends AppCompatActivity {
             /**
              * Updating parsed JSON data into ListView
              * */
-            ListAdapter adaptermatches = new SimpleAdapter(
-                    MainActivity.this, matchList,
-                    R.layout.list_item, new String[]{"match_id", "start_time","lobby_type"}, new int[]{R.id.match_id,
-                    R.id.start_time, R.id.lobby_type});
 
-            lv.setAdapter(adaptermatches);
+
+
         }
 
 
