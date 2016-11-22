@@ -20,12 +20,13 @@ public class RequestActivity extends Activity implements View.OnClickListener{
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-        // TODO Auto-generated method stub
         super.onCreate(savedInstanceState);
         setContentView(R.layout.acc);
+
         editText = (EditText) findViewById(R.id.acc);
         okeybtn = (Button) findViewById(R.id.okey);
         okeybtn.setOnClickListener(this);
+
     }
 
     @Override
