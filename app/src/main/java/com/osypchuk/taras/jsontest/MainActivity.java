@@ -15,7 +15,7 @@ import java.util.List;
 
 import info.androidhive.jsonparsing.R;
 
-public class MainActivity extends AppCompatActivity implements LoaderManager.LoaderCallbacks<List<Match>>, View.OnClickListener {
+public class MainActivity extends AppCompatActivity implements View.OnClickListener {
 
     TextView acc;
     public String my_account_id;
@@ -24,6 +24,25 @@ public class MainActivity extends AppCompatActivity implements LoaderManager.Loa
 
     private RVAdapter adapter;
     private RecyclerView rv;
+
+    private LoaderManager.LoaderCallbacks<List<Match>>
+            mLoaderCallbacks = new LoaderManager.LoaderCallbacks<List<Match>>() {
+        @Override
+        public Loader<List<Match>> onCreateLoader(int id, Bundle args) {
+            return new JsonAsynkTaskLoader(MainActivity.this);
+        }
+
+        @Override
+        public void onLoadFinished(Loader<List<Match>> loader, List<Match> data) {
+            adapter = new RVAdapter(data);
+            rv.setAdapter(adapter);
+        }
+
+        @Override
+        public void onLoaderReset(Loader<List<Match>> loader) {
+
+        }
+    };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -37,6 +56,7 @@ public class MainActivity extends AppCompatActivity implements LoaderManager.Loa
 
         FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
         fab.setOnClickListener(this);
+        getSupportLoaderManager().initLoader(id_id, savedInstanceState, mLoaderCallbacks);
     }
 
     @Override
@@ -58,28 +78,6 @@ public class MainActivity extends AppCompatActivity implements LoaderManager.Loa
             loader = getLoaderManager().restartLoader(id_id, bundle, this);
             last_acc = my_account_id;
         }
-    }
-
-
-    @Override
-    public Loader<List<Match>> onCreateLoader(int id, Bundle args) {
-        Loader<List<Match>> jsonasynkloader = null;
-        if (id == id_id)
-            jsonasynkloader = new JsonAsynkTaskLoader(this, args);
-
-        return jsonasynkloader;
-
-    }
-
-    @Override
-    public void onLoadFinished(Loader<List<Match>> loader, List<Match> data) {
-        adapter = new RVAdapter(data);
-        rv.setAdapter(adapter);
-    }
-
-
-    @Override
-    public void onLoaderReset(Loader<List<Match>> loader) {
     }
 
     @Override

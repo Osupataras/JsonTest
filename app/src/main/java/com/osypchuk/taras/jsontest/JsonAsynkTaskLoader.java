@@ -2,7 +2,6 @@ package com.osypchuk.taras.jsontest;
 
 import android.content.AsyncTaskLoader;
 import android.content.Context;
-import android.os.Bundle;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -13,16 +12,14 @@ import java.util.List;
 
 public class JsonAsynkTaskLoader extends AsyncTaskLoader<List<Match>> {
 
-    public String my_account_id = "";
+    public String my_account_id = "169660175";
     private List<Match> match = new ArrayList<>();
     public final static String acc = "account";
 
-    public JsonAsynkTaskLoader(Context context, Bundle bndl) {
+    public JsonAsynkTaskLoader(Context context) {
         super(context);
-        if (bndl != null) {
-            bndl.getString(acc);
-        }
-    }
+
+}
 
     @Override
     public List<Match> loadInBackground() {
@@ -36,8 +33,10 @@ public class JsonAsynkTaskLoader extends AsyncTaskLoader<List<Match>> {
 
     @Override
     protected void onStartLoading() {
-        super.onStartLoading();
-        forceLoad();
+        if (match!=null)
+            deliverResult(match);
+        else
+            forceLoad();
     }
 
     @Override
